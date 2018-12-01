@@ -1,7 +1,7 @@
 # syntastic_gradle
 script for vim plugin 'syntastic' to sync with gradle project with android plugin applied
 
-# Installation && Usage
+## Installation && Usage
 Simply put syntastic.gradle & syntastic_gradle_sync.sh in same directory, let's say ~/bin/,
 and add exec permission for syntastic_gradle_sync.sh
 ```shell
