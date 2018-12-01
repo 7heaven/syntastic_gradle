@@ -13,4 +13,6 @@ then
     ./gradlew assembleRelease $1
   
     grep -v "syntastic\.gradle" build.gradle > build.gradle.tmp.syntastic && mv build.gradle.tmp.syntastic build.gradle
+else
+	echo "build.gradle file not found!"
 fi
