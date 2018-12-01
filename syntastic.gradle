@@ -1,0 +1,104 @@
+import org.gradle.api.Project
+import org.gradle.api.plugins.JavaBasePlugin
+
+ext.isLocalArtifact = { id ->
+    return id.group.startsWith("tools")
+}
+
+ext.isAndroidArtifact = { id ->
+    return id.group.startsWith("com.android.tools")
+}
+
+ext.isAndroidExternalArtifact = { id ->
+    return id.group.startsWith("com.android.tools.external") ||
+            id.group.startsWith("com.android.external")
+}
+
+ext.isValidArtifactType = { artifact ->
+    return artifact.type.equals("jar") || artifact.type.equals("bundle")
+}
+
+ext.addProjectExtraTask = { subproject ->
+    project.logger.info("subproject:" + subproject.getName())
+
+    subproject.afterEvaluate {
+        subproject.tasks.matching {
+            println it.name
+            it.name.startsWith("compile")
+        } each { t ->
+            
+            subproject.logger.lifecycle("subproject:" + subproject.getName() + " added!")
+        
+            subproject.logger.lifecycle("task matched:" + t.name)
+            t.doFirst {
+                def pluginName = null;
+                def variants = null;
+                if(subproject.plugins.hasPlugin("com.android.library")){
+                    pluginName = "com.android.library";
+                    variants = subproject.android.libraryVariants;
+                }else if(subproject.plugins.hasPlugin("com.android.application")){
+                    pluginName = "com.android.application";
+                    variants = subproject.android.applicationVariants;
+                }
+            
+                subproject.logger.lifecycle("plugin:" + pluginName + ", variants:" + variants.dump())
+            
+                if(pluginName != null && variants != null){
+            
+                    File syntasticFile = new File(subproject.projectDir, ".syntastic_javac_config");
+                    subproject.logger.lifecycle("syntasticFile:" + syntasticFile.getAbsolutePath());
+                    if(syntasticFile.exists()) syntasticFile.delete();
+                    variants.all { variant ->
+                        def androidBuilder = subproject.plugins.getPlugin(pluginName).androidBuilder;
+                        def classpaths = androidBuilder.getCompileClasspath(variant.variantData.variantConfiguration);
+                        int size = classpaths.size();
+                        String classPathString = "let g:syntastic_java_javac_classpath = '";
+                        //classPathString += subproject.projectDir.getAbsolutePath() + ":";
+                
+                        def srcSets = subproject.android.sourceSets.main.java.srcDirs;
+                        if(srcSets != null && srcSets.size() > 0){
+                            for(String srcSet : srcSets){
+                                classPathString += srcSet + ":";
+                            }
+                        }
+            
+                        def bootClasspaths = androidBuilder.getBootClasspathAsStrings(true);
+                        if(bootClasspaths != null && bootClasspaths.size() > 0){
+                            for(String classpath : bootClasspaths){
+                                classPathString += classpath + ":";
+                            }
+                        }
+                        
+                        for(int i = 0; i < size; i++){
+                            def classpath = classpaths.getAt(i);
+                            subproject.logger.info("!!!ClassPath:" + classpath.dump())
+                            classPathString += classpath.getAbsolutePath();
+                            if(i != size - 1) classPathString += ":";
+                        }
+                        classPathString += "'";
+            
+                        syntasticFile.text = classPathString;
+            
+                        subproject.logger.info("BootClassPath:" + subproject.plugins.getPlugin(pluginName).androidBuilder.getBootClasspathAsStrings(true).dump())
+            
+                        subproject.logger.lifecycle("project:" + subproject.dump())
+                    }
+                }
+            
+            }
+        
+            
+        }
+            
+    }
+         
+}
+
+project.getRootProject().afterEvaluate {
+    
+    project.logger.debug("p:" + project.getRootProject().getSubprojects().dump())
+    for(Project subp : project.getRootProject().getSubprojects()){
+        subp.logger.info("sub:" + subp.getName().dump())
+        addProjectExtraTask(subp)
+    }
+}
